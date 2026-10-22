@@ -14,7 +14,7 @@ def validate_metric_value(metric_value):
     if not math.isfinite(metric_value):
         raise ValueError("Metric Value should be finite")
 
-def add_experiment(experiments, model_name, dataset_name, parameters, metric_name, metric_value, notes=''):
+def validate_experiment(model_name, dataset_name, parameters, metric_name, metric_value, notes=""):
     validate_nonblank_string("Model Name", model_name)
     validate_nonblank_string("Dataset Name", dataset_name)
     validate_nonblank_string("Metric Name", metric_name)
@@ -25,11 +25,15 @@ def add_experiment(experiments, model_name, dataset_name, parameters, metric_nam
 
     if not isinstance(notes, str):
         raise TypeError("Notes should be a string")
-    
-    experiment_id = experiments[-1]["id"] + 1 if experiments else 1
-    experiment = {"id":experiment_id, "model_name":model_name, "dataset_name":dataset_name, "parameters":parameters, "metric_name":metric_name, "metric_value":metric_value, "notes":notes}
-    experiments.append(experiment)
-    return experiment
+
+def add_experiment(experiments, model_name, dataset_name, parameters, metric_name, metric_value, notes=''):
+    validated = validate_experiment(model_name, dataset_name, parameters, metric_name, metric_value, notes)
+
+    if validated:
+        experiment_id = experiments[-1]["id"] + 1 if experiments else 1
+        experiment = {"id":experiment_id, "model_name":model_name, "dataset_name":dataset_name, "parameters":parameters, "metric_name":metric_name, "metric_value":metric_value, "notes":notes}
+        experiments.append(experiment)
+        return experiment
 
 def get_experiment(experiments, experiment_id):
     for experiment in experiments:

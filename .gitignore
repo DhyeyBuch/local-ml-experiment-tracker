@@ -1,4 +1,8 @@
+.venv/
 __pycache__/
 *.py[cod]
-.venv/
+experiments.db
+experiments.db-journal
+experiments.db-wal
+experiments.db-shm
 taxi_exp.json

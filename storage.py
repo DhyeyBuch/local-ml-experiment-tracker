@@ -1,8 +1,24 @@
 import json
+from pathlib import Path
+import os
+import tempfile
 
 def save_experiment(experiments, filename):
-    with open(filename, "w", encoding="utf-8") as file:
-        json.dump(experiments, file, indent=2, allow_nan=False)
+    destination = Path(filename)
+    text = json.dumps(experiments, indent=2, allow_nan=False)
+    temporary_path = None
+
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=destination.parent, delete=False) as file:
+            temporary_path = Path(file.name)
+            file.write(text)
+
+        os.replace(temporary_path, destination)
+
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    
 
 def load_experiment(filename):
     try:

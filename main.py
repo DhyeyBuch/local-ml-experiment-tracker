@@ -1,8 +1,15 @@
-# experiment={"id": 1,"model_name": "Ridge","dataset_name": "taxi_v1","parameters": {"alpha": 1.0},"metric_name": "rmse","metric_value": 5.2,"notes": "Initial baseline"}
-import math
 import json
-from storage import save_experiment, load_experiment
-from tracker import add_experiment, update_notes, get_experiment
+import argparse
+
+from tracker import validate_experiment
+from database import (
+    initialize_database,
+    fetch_experiment,
+    fetch_experiments,
+    insert_experiment,
+    update_experiment_notes,
+)
+
 
 def display_experiments(experiments):
     if experiments:
@@ -11,44 +18,91 @@ def display_experiments(experiments):
     else:
         print("No experiments recorded")
 
+
 def main():
-    FILENAME = "taxi_exp.json"
+    parser = argparse.ArgumentParser(description="Inspect Saved ML Experiments")
 
-    experiments = load_experiment(FILENAME)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("list", help="Display the first 10 experiments")
 
-    try:
-        add_experiment(
-            experiments,
-            model_name="   ",
-            dataset_name="taxi_v2",
-            parameters={},
-            metric_name="RMSE",
-            metric_value=3.8
-        )
-    except (ValueError, TypeError) as error:
-        print(f"Rejected: {error}")
+    show_parser = subparsers.add_parser("show", help="Display one experiment")
+    show_parser.add_argument(
+        "experiment_id", type=int,
+        help="ID of the experiment you want to inspect"
+    )
 
-    else:
-        save_experiment(experiments, FILENAME)
-        print("Successfully Added and Saved")
+    update_notes_parser = subparsers.add_parser(
+        "update-notes", help="Update the notes of the specified experiment"
+    )
+    update_notes_parser.add_argument(
+        "experiment_id", type=int,
+        help="ID of the experiment you want to update"
+    )
+    update_notes_parser.add_argument("notes", help="The updated notes")
 
-    try:
-        new_rec = update_notes(experiments, 2, "Best performing so far")
-    except TypeError as error:
-        print(f"Rejected: {error}")
-    else:
-        if new_rec is None:
-            print("Experiment not found")
+    add_parser = subparsers.add_parser("add", help="Add a new experiment")
+    add_parser.add_argument("--model", required=True, help="Model name")
+    add_parser.add_argument("--dataset", required=True, help="Dataset name")
+    add_parser.add_argument("--metric", required=True, help="Metric name")
+    add_parser.add_argument(
+        "--value", type=float, required=True, help="Metric value"
+    )
+    add_parser.add_argument("--notes", default="", help="Experiment Notes")
+    add_parser.add_argument(
+        "--parameters", default="{}",
+        help="Model Parameters as a JSON object"
+    )
+
+    args = parser.parse_args()
+
+    initialize_database()
+
+    if args.command == "show":
+        record = fetch_experiment(args.experiment_id)
+
+        if record is not None:
+            print(record)
         else:
-            save_experiment(experiments, FILENAME)
-            display_experiments(load_experiment(FILENAME))
+            print("Experiment not found")
 
-    record = get_experiment(experiments, experiment_id=92)
+    elif args.command == "list":
+        display_experiments(fetch_experiments())
 
-    if record is None:
-        print("Experiment is not found")
-    else:
-        print(record["model_name"])
+    elif args.command == "update-notes":
+        found = update_experiment_notes(args.experiment_id, args.notes)
 
-if __name__=="__main__":
+        if found:
+            print(fetch_experiment(args.experiment_id))
+        else:
+            print("Experiment doesn't exist")
+
+    elif args.command == "add":
+        try:
+            parameters = json.loads(args.parameters)
+            validate_experiment(
+                model_name=args.model,
+                dataset_name=args.dataset,
+                parameters=parameters,
+                metric_name=args.metric,
+                metric_value=args.value,
+                notes=args.notes,
+            )
+
+            json.dumps(parameters, allow_nan=False)
+
+        except (ValueError, TypeError) as error:
+            print(f"Rejected: {error}")
+        else:
+            new_id = insert_experiment(
+                model_name=args.model,
+                dataset_name=args.dataset,
+                parameters=parameters,
+                metric_name=args.metric,
+                metric_value=args.value,
+                notes=args.notes,
+            )
+            print(f"Saved Experiment: {new_id}")
+
+
+if __name__ == "__main__":
     main()
